@@ -1,0 +1,97 @@
+You are a senior full-stack engineer. Implement AUTOMATIC LEAD ASSIGNMENT with a 2-level hierarchy:
+
+GOAL
+When a new lead is created, it should be auto-assigned in this flow:
+Admin level assigns lead to a Manager (auto or manual).
+Then Manager level assigns lead to an Executive (auto or manual).
+Leads must never skip levels (no direct Admin -> Executive unless explicitly allowed by Admin setting).
+
+ROLES
+- Admin: can assign/reassign leads to Managers; can override anything.
+- Manager: can assign/reassign leads to Executives within their own team only.
+- Executive: receives assigned leads; cannot reassign.
+
+DATA MODEL UPDATES
+1) Users:
+- id, name, role (ADMIN/MANAGER/EXECUTIVE), is_active
+2) ManagerExecutiveMap:
+- manager_id, executive_id, is_active
+3) Lead:
+- id
+- name, mobile, service_type, city, source
+- status (NEW/FOLLOW_UP/CONVERTED/CLOSED)
+- assigned_manager_id (nullable)
+- assigned_executive_id (nullable)
+- assignment_stage (ENUM: UNASSIGNED, MANAGER_ASSIGNED, EXECUTIVE_ASSIGNED) default UNASSIGNED
+- created_at, updated_at
+4) AssignmentHistory:
+- id, lead_id
+- from_role, from_user_id
+- to_role, to_user_id
+- level (MANAGER_LEVEL or EXECUTIVE_LEVEL)
+- reason (string optional)
+- created_at
+
+AUTO-ASSIGN RULES (CRITICAL)
+A) Admin -> Manager Auto-Assign (Level 1)
+When lead is created with auto_assign_level1 = true:
+- Choose an ACTIVE Manager using one of these strategies (configurable):
+  1) Round Robin (default): next manager in rotation
+  2) Least Active Leads: manager with the fewest open leads (NEW + FOLLOW_UP)
+- Assign lead.assigned_manager_id = chosen_manager_id
+- Set assignment_stage = MANAGER_ASSIGNED
+- Create history record (level=MANAGER_LEVEL)
+- Notify the selected Manager: “New lead assigned to you.”
+
+If no active manager exists:
+- Keep assignment_stage = UNASSIGNED
+- Notify Admin: “No active managers available for auto-assign.”
+
+B) Manager -> Executive Auto-Assign (Level 2)
+As soon as a Manager is assigned (either auto or manual), trigger Level 2 assignment IF auto_assign_level2 = true:
+- Fetch executives mapped to this manager where is_active = true
+- If none: keep assigned_executive_id null, assignment_stage stays MANAGER_ASSIGNED
+  and notify that manager: “No active executives available. Please assign manually.”
+- Else pick an Executive using configurable strategy:
+  1) Round Robin within that manager’s team (default)
+  2) Least Active Leads within team (fewest open leads)
+- Assign lead.assigned_executive_id = chosen_exec_id
+- Set assignment_stage = EXECUTIVE_ASSIGNED
+- Create history record (level=EXECUTIVE_LEVEL)
+- Notify Executive: “New lead assigned to you.”
+- Notify Manager (optional): “Lead assigned to <Executive Name>.”
+
+MANUAL ASSIGN RULES
+- Admin can manually assign a lead to a Manager anytime (unless status is CLOSED/CONVERTED).
+- Manager can manually assign a lead to an Executive only if lead.assigned_manager_id == manager.id.
+- Reassignment must create history + notifications to both old and new assignees.
+
+STATUS CONSTRAINTS
+- If status is CONVERTED or CLOSED:
+  - Only Admin can reassign (optional: disable reassignment completely).
+- If lead has no manager assigned, manager/executive actions are blocked.
+
+UI REQUIREMENTS
+- Admin Leads Table: show Assigned Manager + Assignment Stage + “Assign Manager” action
+- Manager Leads Table: show Assigned Executive + “Assign Executive” action
+- Add Lead form:
+  - toggle: Auto-assign Manager (default ON)
+  - toggle: Auto-assign Executive after manager assigned (default ON)
+- Filters: by manager, executive, stage, status
+
+NOTIFICATIONS (MINIMUM)
+- Manager notified when Admin assigns lead to them (auto or manual)
+- Executive notified when Manager assigns lead to them (auto or manual)
+
+DELIVERABLES
+Provide:
+1) Exact assignment algorithm (round robin + least workload)
+2) DB schema changes
+3) API endpoints:
+   - POST /leads (creates + triggers level 1 & optionally level 2)
+   - POST /leads/{id}/assign-manager (Admin only)
+   - POST /leads/{id}/assign-executive (Manager/Admin)
+   - GET /dashboard (admin/manager/executive scoped)
+4) Permission matrix & edge cases.
+
+Implement with robust validation, audit logs, and clear error messages.

@@ -1,36 +1,40 @@
 import { db } from "./db";
 import {
-  users, leads, leadNotes, notifications,
-  type User, type InsertUser, type Lead, type InsertLead,
-  type Note, type InsertNote, type Notification, type InsertNotification
+  users, leads, leadNotes, notifications, assignmentHistory, managerExecutiveMap,
+  type User, type Lead, type AssignmentHistory, type Note, type Notification, 
+  type InsertUser, type InsertLead, type InsertNote, type InsertNotification, type InsertAssignmentHistory
 } from "@shared/schema";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, asc } from "drizzle-orm";
 
 export interface IStorage {
-  // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUsersByRole(role?: "ADMIN" | "MANAGER" | "EXECUTIVE"): Promise<User[]>;
   getExecutivesByManager(managerId: number): Promise<User[]>;
-
-  // Leads
-  getLeads(filters?: { status?: string, assignedTo?: number, search?: string }): Promise<Lead[]>;
+  
+  getLeads(filters?: { status?: string, managerId?: number, executiveId?: number, stage?: string, search?: string }): Promise<Lead[]>;
   getLead(id: number): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
-  updateLead(id: number, updates: Partial<InsertLead>): Promise<Lead>;
+  updateLead(id: number, updates: Partial<Lead>): Promise<Lead>;
   
-  // Notes
+  createAssignmentHistory(history: InsertAssignmentHistory): Promise<AssignmentHistory>;
+  getAssignmentHistory(leadId: number): Promise<AssignmentHistory[]>;
+  
   getLeadNotes(leadId: number): Promise<(Note & { authorName: string })[]>;
   createLeadNote(note: InsertNote): Promise<Note>;
 
-  // Notifications
   getNotifications(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: number): Promise<void>;
 
-  // Dashboard
   getDashboardStats(userId: number, role: string): Promise<any>;
+  
+  // Assignment Algorithms
+  getNextManagerRoundRobin(): Promise<User | undefined>;
+  getNextExecutiveRoundRobin(managerId: number): Promise<User | undefined>;
+  getManagerWithLeastWorkload(): Promise<User | undefined>;
+  getExecutiveWithLeastWorkload(managerId: number): Promise<User | undefined>;
   
   sessionStore: any;
 }
@@ -49,7 +53,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // User methods
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -66,21 +69,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsersByRole(role?: "ADMIN" | "MANAGER" | "EXECUTIVE"): Promise<User[]> {
-    if (role) {
-      return db.select().from(users).where(eq(users.role, role));
-    }
-    return db.select().from(users);
+    if (role) return db.select().from(users).where(and(eq(users.role, role), eq(users.isActive, true)));
+    return db.select().from(users).where(eq(users.isActive, true));
   }
 
   async getExecutivesByManager(managerId: number): Promise<User[]> {
-    return db.select().from(users).where(eq(users.managerId, managerId));
+    const maps = await db.select()
+      .from(managerExecutiveMap)
+      .where(and(eq(managerExecutiveMap.managerId, managerId), eq(managerExecutiveMap.isActive, true)));
+    
+    if (maps.length === 0) return [];
+    
+    return db.select().from(users).where(inArray(users.id, maps.map(m => m.executiveId)));
   }
 
-  // Lead methods
-  async getLeads(filters?: { status?: string, assignedTo?: number, search?: string }): Promise<Lead[]> {
+  async getLeads(filters?: { status?: string, managerId?: number, executiveId?: number, stage?: string, search?: string }): Promise<Lead[]> {
     let conditions = [];
     if (filters?.status) conditions.push(eq(leads.status, filters.status as any));
-    if (filters?.assignedTo) conditions.push(eq(leads.assignedTo, filters.assignedTo));
+    if (filters?.managerId) conditions.push(eq(leads.assignedManagerId, filters.managerId));
+    if (filters?.executiveId) conditions.push(eq(leads.assignedExecutiveId, filters.executiveId));
+    if (filters?.stage) conditions.push(eq(leads.assignmentStage, filters.stage as any));
+    
     if (filters?.search) {
       const searchLower = `%${filters.search.toLowerCase()}%`;
       conditions.push(sql`lower(${leads.name}) LIKE ${searchLower} OR lower(${leads.mobile}) LIKE ${searchLower} OR lower(${leads.city}) LIKE ${searchLower}`);
@@ -102,7 +111,7 @@ export class DatabaseStorage implements IStorage {
     return newLead;
   }
 
-  async updateLead(id: number, updates: Partial<InsertLead>): Promise<Lead> {
+  async updateLead(id: number, updates: Partial<Lead>): Promise<Lead> {
     const [updatedLead] = await db.update(leads)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(leads.id, id))
@@ -110,7 +119,15 @@ export class DatabaseStorage implements IStorage {
     return updatedLead;
   }
 
-  // Note methods
+  async createAssignmentHistory(history: InsertAssignmentHistory): Promise<AssignmentHistory> {
+    const [newHistory] = await db.insert(assignmentHistory).values(history).returning();
+    return newHistory;
+  }
+
+  async getAssignmentHistory(leadId: number): Promise<AssignmentHistory[]> {
+    return db.select().from(assignmentHistory).where(eq(assignmentHistory.leadId, leadId)).orderBy(asc(assignmentHistory.createdAt));
+  }
+
   async getLeadNotes(leadId: number): Promise<(Note & { authorName: string })[]> {
     return db.select({
       ...leadNotes,
@@ -127,13 +144,8 @@ export class DatabaseStorage implements IStorage {
     return newNote;
   }
 
-  // Notification methods
   async getNotifications(userId: number): Promise<Notification[]> {
-    return db.select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt))
-      .limit(50);
+    return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
@@ -142,74 +154,94 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markNotificationRead(id: number): Promise<void> {
-    await db.update(notifications)
-      .set({ isRead: true })
-      .where(eq(notifications.id, id));
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
   }
 
-  // Dashboard Stats
   async getDashboardStats(userId: number, role: string): Promise<any> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Base conditions
-    let leadConditions = [];
-    
-    // Role filtering
-    if (role === 'EXECUTIVE') {
-      leadConditions.push(eq(leads.assignedTo, userId));
-    } else if (role === 'MANAGER') {
-      const team = await this.getExecutivesByManager(userId);
-      const teamIds = team.map(u => u.id);
-      if (teamIds.length > 0) {
-        // Manager sees their team's leads + unassigned? Or just team's. 
-        // Spec says "view leads of their executives".
-        leadConditions.push(inArray(leads.assignedTo, teamIds));
-      } else {
-        // No team, sees nothing or just own assignments?
-        leadConditions.push(eq(leads.assignedTo, userId)); 
-      }
-    }
-    // ADMIN sees all, so no extra filter needed (empty array)
+    let baseWhere = undefined;
+    if (role === 'EXECUTIVE') baseWhere = eq(leads.assignedExecutiveId, userId);
+    else if (role === 'MANAGER') baseWhere = eq(leads.assignedManagerId, userId);
 
-    const baseWhere = leadConditions.length ? and(...leadConditions) : undefined;
-    
-    // Counts
-    const [totalLeads] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(baseWhere);
-    
-    const followUpWhere = and(
-      baseWhere,
-      eq(leads.status, 'FOLLOW_UP'),
-      sql`${leads.followUpAt} >= ${today.toISOString()} AND ${leads.followUpAt} < ${tomorrow.toISOString()}`
-    );
-    const [todayFollowUps] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(followUpWhere);
+    const [total] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(baseWhere);
+    const [todayF] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'FOLLOW_UP'), sql`${leads.followUpAt} >= ${today.toISOString()} AND ${leads.followUpAt} < ${tomorrow.toISOString()}`));
+    const [overdue] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'FOLLOW_UP'), sql`${leads.followUpAt} < ${today.toISOString()}`));
+    const [conv] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CONVERTED')));
+    const [closed] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CLOSED')));
 
-    const overdueWhere = and(
-      baseWhere,
-      eq(leads.status, 'FOLLOW_UP'),
-      sql`${leads.followUpAt} < ${today.toISOString()}`
-    );
-    const [overdueFollowUps] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(overdueWhere);
-
-    const [convertedCount] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CONVERTED')));
-    const [closedCount] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CLOSED')));
-
-    const stats: any = {
-      totalLeads: Number(totalLeads.count),
-      todayFollowUps: Number(todayFollowUps.count),
-      overdueFollowUps: Number(overdueFollowUps.count),
-      convertedCount: Number(convertedCount.count),
-      closedCount: Number(closedCount.count),
+    return {
+      totalLeads: Number(total.count),
+      todayFollowUps: Number(todayF.count),
+      overdueFollowUps: Number(overdue.count),
+      convertedCount: Number(conv.count),
+      closedCount: Number(closed.count),
     };
+  }
 
-    if (role === 'ADMIN' || role === 'MANAGER') {
-       // Team performance logic could go here, simplified for now
-       stats.teamPerformance = []; 
-    }
+  // Round Robin
+  async getNextManagerRoundRobin(): Promise<User | undefined> {
+    const managers = await this.getUsersByRole("MANAGER");
+    if (managers.length === 0) return undefined;
+    
+    const [lastAssignment] = await db.select()
+      .from(assignmentHistory)
+      .where(eq(assignmentHistory.level, 'MANAGER_LEVEL'))
+      .orderBy(desc(assignmentHistory.createdAt))
+      .limit(1);
+    
+    if (!lastAssignment) return managers[0];
+    
+    const lastIndex = managers.findIndex(m => m.id === lastAssignment.toRoleId);
+    return managers[(lastIndex + 1) % managers.length];
+  }
 
-    return stats;
+  async getNextExecutiveRoundRobin(managerId: number): Promise<User | undefined> {
+    const executives = await this.getExecutivesByManager(managerId);
+    if (executives.length === 0) return undefined;
+
+    const [lastAssignment] = await db.select()
+      .from(assignmentHistory)
+      .where(and(eq(assignmentHistory.level, 'EXECUTIVE_LEVEL'), eq(assignmentHistory.fromRoleId, managerId)))
+      .orderBy(desc(assignmentHistory.createdAt))
+      .limit(1);
+
+    if (!lastAssignment) return executives[0];
+
+    const lastIndex = executives.findIndex(e => e.id === lastAssignment.toRoleId);
+    return executives[(lastIndex + 1) % executives.length];
+  }
+
+  // Least Workload
+  async getManagerWithLeastWorkload(): Promise<User | undefined> {
+    const managers = await this.getUsersByRole("MANAGER");
+    if (managers.length === 0) return undefined;
+
+    const workloads = await Promise.all(managers.map(async m => {
+      const [count] = await db.select({ count: sql<number>`count(*)` })
+        .from(leads)
+        .where(and(eq(leads.assignedManagerId, m.id), inArray(leads.status, ['NEW', 'FOLLOW_UP'])));
+      return { manager: m, count: Number(count.count) };
+    }));
+
+    return workloads.sort((a, b) => a.count - b.count)[0].manager;
+  }
+
+  async getExecutiveWithLeastWorkload(managerId: number): Promise<User | undefined> {
+    const executives = await this.getExecutivesByManager(managerId);
+    if (executives.length === 0) return undefined;
+
+    const workloads = await Promise.all(executives.map(async e => {
+      const [count] = await db.select({ count: sql<number>`count(*)` })
+        .from(leads)
+        .where(and(eq(leads.assignedExecutiveId, e.id), inArray(leads.status, ['NEW', 'FOLLOW_UP'])));
+      return { executive: e, count: Number(count.count) };
+    }));
+
+    return workloads.sort((a, b) => a.count - b.count)[0].executive;
   }
 }
 

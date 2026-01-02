@@ -5,6 +5,8 @@ import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["ADMIN", "MANAGER", "EXECUTIVE"]);
 export const leadStatusEnum = pgEnum("status", ["NEW", "FOLLOW_UP", "CONVERTED", "CLOSED"]);
+export const assignmentStageEnum = pgEnum("assignment_stage", ["UNASSIGNED", "MANAGER_ASSIGNED", "EXECUTIVE_ASSIGNED"]);
+export const historyLevelEnum = pgEnum("history_level", ["MANAGER_LEVEL", "EXECUTIVE_LEVEL"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -14,7 +16,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   mobile: text("mobile").notNull(),
-  managerId: integer("manager_id"), // For executives to link to a manager
+  managerId: integer("manager_id"),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -27,12 +29,28 @@ export const leads = pgTable("leads", {
   serviceType: text("service_type").notNull(),
   city: text("city").notNull(),
   source: text("source").notNull(),
-  assignedTo: integer("assigned_to"), // executive_id
-  assignedBy: integer("assigned_by"), // admin/manager_id
+  assignedManagerId: integer("assigned_manager_id"),
+  assignedExecutiveId: integer("assigned_executive_id"),
+  assignedBy: integer("assigned_by"),
+  assignmentStage: assignmentStageEnum("assignment_stage").default("UNASSIGNED").notNull(),
   status: leadStatusEnum("status").default("NEW").notNull(),
   followUpAt: timestamp("follow_up_at"),
+  autoAssignLevel1: boolean("auto_assign_level1").default(true),
+  autoAssignLevel2: boolean("auto_assign_level2").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const assignmentHistory = pgTable("assignment_history", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").notNull(),
+  fromRoleId: integer("from_user_id"),
+  fromRole: text("from_role"),
+  toRoleId: integer("to_user_id").notNull(),
+  toRole: text("to_role").notNull(),
+  level: historyLevelEnum("level").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const leadNotes = pgTable("lead_notes", {
@@ -62,23 +80,35 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     relationName: "manager_executives",
   }),
   executives: many(users, { relationName: "manager_executives" }),
-  assignedLeads: many(leads, { relationName: "lead_assignee" }),
-  createdNotes: many(leadNotes),
+  managedLeads: many(leads, { relationName: "manager_leads" }),
+  assignedLeads: many(leads, { relationName: "executive_leads" }),
   notifications: many(notifications),
 }));
 
 export const leadsRelations = relations(leads, ({ one, many }) => ({
-  assignee: one(users, {
-    fields: [leads.assignedTo],
+  manager: one(users, {
+    fields: [leads.assignedManagerId],
     references: [users.id],
-    relationName: "lead_assignee",
+    relationName: "manager_leads",
   }),
-  assigner: one(users, {
-    fields: [leads.assignedBy],
+  executive: one(users, {
+    fields: [leads.assignedExecutiveId],
     references: [users.id],
-    relationName: "lead_assigner",
+    relationName: "executive_leads",
   }),
+  history: many(assignmentHistory),
   notes: many(leadNotes),
+}));
+
+export const assignmentHistoryRelations = relations(assignmentHistory, ({ one }) => ({
+  lead: one(leads, {
+    fields: [assignmentHistory.leadId],
+    references: [leads.id],
+  }),
+  toUser: one(users, {
+    fields: [assignmentHistory.toRoleId],
+    references: [users.id],
+  }),
 }));
 
 export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
@@ -88,13 +118,6 @@ export const leadNotesRelations = relations(leadNotes, ({ one }) => ({
   }),
   author: one(users, {
     fields: [leadNotes.createdBy],
-    references: [users.id],
-  }),
-}));
-
-export const notificationsRelations = relations(notifications, ({ one }) => ({
-  user: one(users, {
-    fields: [notifications.userId],
     references: [users.id],
   }),
 }));
@@ -111,8 +134,12 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   createdAt: true, 
   updatedAt: true 
 }).extend({
-  // CRITICAL FIX: Coerce date strings to Date objects to prevent "expected date, received string"
   followUpAt: z.coerce.date().nullable().optional(),
+});
+
+export const insertAssignmentHistorySchema = createInsertSchema(assignmentHistory).omit({
+  id: true,
+  createdAt: true
 });
 
 export const insertNoteSchema = createInsertSchema(leadNotes).omit({ 
@@ -131,6 +158,7 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type AssignmentHistory = typeof assignmentHistory.$inferSelect;
 export type Note = typeof leadNotes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Notification = typeof notifications.$inferSelect;

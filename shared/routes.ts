@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertUserSchema, insertLeadSchema, insertNoteSchema, users, leads, leadNotes, notifications, roleEnum, leadStatusEnum } from './schema';
+import { insertUserSchema, insertLeadSchema, insertNoteSchema, users, leads, leadNotes, notifications, assignmentHistory } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -17,7 +17,6 @@ export const errorSchemas = {
   }),
 };
 
-// API Contract
 export const api = {
   auth: {
     login: {
@@ -26,7 +25,7 @@ export const api = {
       input: z.object({
         username: z.string(),
         password: z.string(),
-        portalRole: z.enum(["ADMIN", "MANAGER", "EXECUTIVE"]), // Enforce portal check
+        portalRole: z.enum(["ADMIN", "MANAGER", "EXECUTIVE"]),
       }),
       responses: {
         200: z.custom<typeof users.$inferSelect>(),
@@ -77,18 +76,20 @@ export const api = {
       path: '/api/leads',
       input: z.object({
         status: z.enum(["NEW", "FOLLOW_UP", "CONVERTED", "CLOSED"]).optional(),
-        assignedTo: z.coerce.number().optional(),
+        assignedManagerId: z.coerce.number().optional(),
+        assignedExecutiveId: z.coerce.number().optional(),
+        assignmentStage: z.enum(["UNASSIGNED", "MANAGER_ASSIGNED", "EXECUTIVE_ASSIGNED"]).optional(),
         search: z.string().optional(),
       }).optional(),
       responses: {
-        200: z.array(z.custom<typeof leads.$inferSelect>()),
+        200: z.array(z.custom<typeof leads.$inferSelect & { managerName?: string, executiveName?: string }>()),
       },
     },
     get: {
       method: 'GET' as const,
       path: '/api/leads/:id',
       responses: {
-        200: z.custom<typeof leads.$inferSelect>(),
+        200: z.custom<typeof leads.$inferSelect & { history: (typeof assignmentHistory.$inferSelect)[] }>(),
         404: errorSchemas.notFound,
       },
     },
@@ -111,6 +112,32 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    assignManager: {
+      method: 'POST' as const,
+      path: '/api/leads/:id/assign-manager',
+      input: z.object({
+        managerId: z.number(),
+        reason: z.string().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof leads.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
+    assignExecutive: {
+      method: 'POST' as const,
+      path: '/api/leads/:id/assign-executive',
+      input: z.object({
+        executiveId: z.number(),
+        reason: z.string().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof leads.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
   },
   notes: {
     list: {
@@ -123,7 +150,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/leads/:leadId/notes',
-      input: insertNoteSchema.omit({ leadId: true, createdBy: true }), // leadId in param, createdBy from session
+      input: insertNoteSchema.omit({ leadId: true, createdBy: true }),
       responses: {
         201: z.custom<typeof leadNotes.$inferSelect>(),
         400: errorSchemas.validation,
@@ -141,13 +168,11 @@ export const api = {
           overdueFollowUps: z.number(),
           convertedCount: z.number(),
           closedCount: z.number(),
-          // For managers/admins:
-          teamPerformance: z.array(z.object({
-            executiveId: z.number(),
-            executiveName: z.string(),
-            assignedCount: z.number(),
-            convertedCount: z.number(),
-          })).optional(),
+          stageStats: z.object({
+            unassigned: z.number(),
+            managerAssigned: z.number(),
+            executiveAssigned: z.number(),
+          }).optional(),
         }),
       },
     },
