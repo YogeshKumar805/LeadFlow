@@ -1,6 +1,6 @@
 import { db } from "./db";
 import {
-  users, leads, leadNotes, notifications, assignmentHistory, managerExecutiveMap,
+  users, leads, leadNotes, notifications, assignmentHistory,
   type User, type Lead, type AssignmentHistory, type Note, type Notification, 
   type InsertUser, type InsertLead, type InsertNote, type InsertNotification, type InsertAssignmentHistory
 } from "@shared/schema";
@@ -69,18 +69,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsersByRole(role?: "ADMIN" | "MANAGER" | "EXECUTIVE"): Promise<User[]> {
-    if (role) return db.select().from(users).where(and(eq(users.role, role), eq(users.isActive, true)));
-    return db.select().from(users).where(eq(users.isActive, true));
+    let query = db.select().from(users).where(eq(users.isActive, true));
+    if (role) {
+      query = db.select().from(users).where(and(eq(users.role, role), eq(users.isActive, true)));
+    }
+    return query;
   }
 
   async getExecutivesByManager(managerId: number): Promise<User[]> {
-    const maps = await db.select()
-      .from(managerExecutiveMap)
-      .where(and(eq(managerExecutiveMap.managerId, managerId), eq(managerExecutiveMap.isActive, true)));
-    
-    if (maps.length === 0) return [];
-    
-    return db.select().from(users).where(inArray(users.id, maps.map(m => m.executiveId)));
+    return db.select().from(users).where(and(eq(users.managerId, managerId), eq(users.role, "EXECUTIVE"), eq(users.isActive, true)));
   }
 
   async getLeads(filters?: { status?: string, managerId?: number, executiveId?: number, stage?: string, search?: string }): Promise<Lead[]> {
@@ -129,14 +126,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLeadNotes(leadId: number): Promise<(Note & { authorName: string })[]> {
-    return db.select({
-      ...leadNotes,
+    const results = await db.select({
+      id: leadNotes.id,
+      leadId: leadNotes.leadId,
+      noteText: leadNotes.noteText,
+      createdBy: leadNotes.createdBy,
+      createdAt: leadNotes.createdAt,
       authorName: users.name
     })
     .from(leadNotes)
     .leftJoin(users, eq(leadNotes.createdBy, users.id))
     .where(eq(leadNotes.leadId, leadId))
     .orderBy(desc(leadNotes.createdAt));
+    
+    return results.map(r => ({
+      ...r,
+      authorName: r.authorName || "Unknown"
+    }));
   }
 
   async createLeadNote(note: InsertNote): Promise<Note> {
@@ -182,7 +188,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Round Robin
   async getNextManagerRoundRobin(): Promise<User | undefined> {
     const managers = await this.getUsersByRole("MANAGER");
     if (managers.length === 0) return undefined;
@@ -215,7 +220,6 @@ export class DatabaseStorage implements IStorage {
     return executives[(lastIndex + 1) % executives.length];
   }
 
-  // Least Workload
   async getManagerWithLeastWorkload(): Promise<User | undefined> {
     const managers = await this.getUsersByRole("MANAGER");
     if (managers.length === 0) return undefined;

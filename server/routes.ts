@@ -11,7 +11,6 @@ async function seed() {
 
   console.log("Seeding database...");
 
-  // Create Users
   const adminPassword = await hashPassword("admin123");
   const admin = await storage.createUser({
     username: "admin",
@@ -43,28 +42,20 @@ async function seed() {
     managerId: manager.id,
   });
 
-  // Create Leads
   await storage.createLead({
     name: "John Doe",
     mobile: "5550101",
     serviceType: "Consulting",
     city: "New York",
     source: "Website",
-    assignedTo: executive.id,
+    assignedManagerId: manager.id,
+    assignedExecutiveId: executive.id,
     assignedBy: admin.id,
+    assignmentStage: "EXECUTIVE_ASSIGNED",
     status: "NEW",
-  });
-
-  await storage.createLead({
-    name: "Jane Smith",
-    mobile: "5550102",
-    serviceType: "Support",
-    city: "Los Angeles",
-    source: "Referral",
-    assignedTo: executive.id,
-    assignedBy: manager.id,
-    status: "FOLLOW_UP",
-    followUpAt: new Date(Date.now() + 86400000), // tomorrow
+    autoAssignLevel1: true,
+    autoAssignLevel2: true,
+    followUpAt: null,
   });
 
   console.log("Seeding complete!");
@@ -74,34 +65,24 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Auth (Passport)
   setupAuth(app);
 
-  // === USERS ===
   app.get(api.users.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    // Optional filtering
-    const role = req.query.role as "ADMIN" | "MANAGER" | "EXECUTIVE" | undefined;
+    const role = req.query.role as any;
     const users = await storage.getUsersByRole(role);
     res.json(users);
   });
 
   app.post(api.users.create.path, async (req, res) => {
-    // Only Admin can create users usually, but for demo maybe open?
-    // Let's restrict to authenticated users or just allow for seeding ease if no users exist
-    // For now, allow open creation for setup, or strictly Admin. 
-    // Spec says "Admin: manage users". 
-    // Let's check auth.
-    // if (!req.isAuthenticated() || req.user.role !== 'ADMIN') return res.sendStatus(403);
-    
+    if (!req.isAuthenticated() || (req.user as any).role !== 'ADMIN') return res.sendStatus(403);
     try {
       const input = api.users.create.input.parse(req.body);
       const hashedPassword = await hashPassword(input.password);
       const user = await storage.createUser({ ...input, password: hashedPassword });
       res.status(201).json(user);
     } catch (err) {
-       if (err instanceof z.ZodError) {
+      if (err instanceof z.ZodError) {
         res.status(400).json({ message: err.errors[0].message });
       } else {
         res.status(500).json({ message: "Internal Server Error" });
@@ -109,20 +90,12 @@ export async function registerRoutes(
     }
   });
 
-  // === LEADS ===
   app.get(api.leads.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
     const user = req.user as any;
     const filters: any = {};
-    
-    // RBAC for filtering
-    if (user.role === 'EXECUTIVE') {
-      filters.assignedTo = user.id;
-    } else if (user.role === 'MANAGER') {
-      // Manager can see all or filter
-      // If query param is passed, use it, otherwise show team's leads (handled in storage)
-    }
+    if (user.role === 'EXECUTIVE') filters.executiveId = user.id;
+    else if (user.role === 'MANAGER') filters.managerId = user.id;
 
     if (req.query.status) filters.status = req.query.status;
     if (req.query.search) filters.search = req.query.search;
@@ -135,41 +108,68 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const lead = await storage.getLead(Number(req.params.id));
     if (!lead) return res.status(404).json({ message: "Lead not found" });
-    
-    // RBAC Check
     const user = req.user as any;
-    if (user.role === 'EXECUTIVE' && lead.assignedTo !== user.id) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-    
-    res.json(lead);
+    if (user.role === 'EXECUTIVE' && lead.assignedExecutiveId !== user.id) return res.sendStatus(403);
+    const history = await storage.getAssignmentHistory(lead.id);
+    res.json({ ...lead, history });
   });
 
   app.post(api.leads.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
     try {
       const input = api.leads.create.input.parse(req.body);
       const user = req.user as any;
-      
-      // Auto-assign logic could go here.
-      // For now, just create.
-      const lead = await storage.createLead({
-        ...input,
-        assignedBy: user.id
-      });
-      
-      // Notify if assigned
-      if (lead.assignedTo) {
-        await storage.createNotification({
-          userId: lead.assignedTo,
-          type: "LEAD_ASSIGNED",
-          title: "New Lead Assigned",
-          message: `You have been assigned lead: ${lead.name}`,
-          relatedLeadId: lead.id
-        });
-      }
+      let lead = await storage.createLead({ ...input, assignedBy: user.id });
 
+      if (lead.autoAssignLevel1) {
+        const manager = await storage.getNextManagerRoundRobin();
+        if (manager) {
+          lead = await storage.updateLead(lead.id, { 
+            assignedManagerId: manager.id, 
+            assignmentStage: "MANAGER_ASSIGNED" 
+          });
+          await storage.createAssignmentHistory({
+            leadId: lead.id,
+            fromRoleId: user.id,
+            fromRole: user.role,
+            toRoleId: manager.id,
+            toRole: "MANAGER",
+            level: "MANAGER_LEVEL",
+          });
+          await storage.createNotification({
+            userId: manager.id,
+            type: "LEAD_ASSIGNED",
+            title: "New Lead Assigned",
+            message: `New lead assigned to you: ${lead.name}`,
+            relatedLeadId: lead.id
+          });
+
+          if (lead.autoAssignLevel2) {
+            const exec = await storage.getNextExecutiveRoundRobin(manager.id);
+            if (exec) {
+              lead = await storage.updateLead(lead.id, { 
+                assignedExecutiveId: exec.id, 
+                assignmentStage: "EXECUTIVE_ASSIGNED" 
+              });
+              await storage.createAssignmentHistory({
+                leadId: lead.id,
+                fromRoleId: manager.id,
+                fromRole: "MANAGER",
+                toRoleId: exec.id,
+                toRole: "EXECUTIVE",
+                level: "EXECUTIVE_LEVEL",
+              });
+              await storage.createNotification({
+                userId: exec.id,
+                type: "LEAD_ASSIGNED",
+                title: "New Lead Assigned",
+                message: `New lead assigned to you: ${lead.name}`,
+                relatedLeadId: lead.id
+              });
+            }
+          }
+        }
+      }
       res.status(201).json(lead);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -180,32 +180,59 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.leads.assignManager.path, async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== 'ADMIN') return res.sendStatus(403);
+    const { managerId, reason } = api.leads.assignManager.input.parse(req.body);
+    const lead = await storage.getLead(Number(req.params.id));
+    if (!lead) return res.sendStatus(404);
+    const updated = await storage.updateLead(lead.id, { 
+      assignedManagerId: managerId, 
+      assignmentStage: "MANAGER_ASSIGNED" 
+    });
+    await storage.createAssignmentHistory({
+      leadId: lead.id,
+      fromRoleId: (req.user as any).id,
+      fromRole: "ADMIN",
+      toRoleId: managerId,
+      toRole: "MANAGER",
+      level: "MANAGER_LEVEL",
+      reason
+    });
+    res.json(updated);
+  });
+
+  app.post(api.leads.assignExecutive.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as any;
+    const { executiveId, reason } = api.leads.assignExecutive.input.parse(req.body);
+    const lead = await storage.getLead(Number(req.params.id));
+    if (!lead) return res.sendStatus(404);
+    if (user.role !== 'ADMIN' && (user.role !== 'MANAGER' || lead.assignedManagerId !== user.id)) return res.sendStatus(403);
+    const updated = await storage.updateLead(lead.id, { 
+      assignedExecutiveId: executiveId, 
+      assignmentStage: "EXECUTIVE_ASSIGNED" 
+    });
+    await storage.createAssignmentHistory({
+      leadId: lead.id,
+      fromRoleId: user.id,
+      fromRole: user.role,
+      toRoleId: executiveId,
+      toRole: "EXECUTIVE",
+      level: "EXECUTIVE_LEVEL",
+      reason
+    });
+    res.json(updated);
+  });
+
   app.put(api.leads.update.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
     try {
       const id = Number(req.params.id);
       const input = api.leads.update.input.parse(req.body);
       const user = req.user as any;
       const existingLead = await storage.getLead(id);
-      
       if (!existingLead) return res.sendStatus(404);
-
-      // RBAC Rules
-      // Executive: Can update status/notes. Cannot reassign.
-      if (user.role === 'EXECUTIVE') {
-        if (existingLead.assignedTo !== user.id) return res.sendStatus(403);
-        if (input.assignedTo && input.assignedTo !== existingLead.assignedTo) {
-          return res.status(403).json({ message: "Executives cannot reassign leads" });
-        }
-        // If closed/converted, restrict editing? 
-        // Spec: "If status is CONVERTED or CLOSED, editing is restricted (only Admin can edit...)"
-        if ((existingLead.status === 'CONVERTED' || existingLead.status === 'CLOSED') && user.role !== 'ADMIN') {
-           // Allow adding notes is handled in /notes endpoint, but updates to lead itself restricted.
-           return res.status(403).json({ message: "Cannot edit closed/converted leads" });
-        }
-      }
-
+      if (user.role === 'EXECUTIVE' && existingLead.assignedExecutiveId !== user.id) return res.sendStatus(403);
       const updated = await storage.updateLead(id, input);
       res.json(updated);
     } catch (err) {
@@ -217,7 +244,6 @@ export async function registerRoutes(
     }
   });
 
-  // === NOTES ===
   app.get(api.notes.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const notes = await storage.getLeadNotes(Number(req.params.leadId));
@@ -244,7 +270,6 @@ export async function registerRoutes(
     }
   });
 
-  // === DASHBOARD ===
   app.get(api.dashboard.stats.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as any;
@@ -252,7 +277,6 @@ export async function registerRoutes(
     res.json(stats);
   });
 
-  // === NOTIFICATIONS ===
   app.get(api.notifications.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as any;
@@ -267,6 +291,5 @@ export async function registerRoutes(
   });
 
   await seed();
-
   return httpServer;
 }
