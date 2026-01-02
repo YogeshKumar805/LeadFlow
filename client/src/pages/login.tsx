@@ -59,14 +59,20 @@ export default function LoginPage({ role }: { role: RoleType }) {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) setLocation("/");
+    if (user) {
+      if (user.role === "ADMIN") setLocation("/dashboard");
+      else if (user.role === "MANAGER") setLocation("/dashboard");
+      else if (user.role === "EXECUTIVE") setLocation("/dashboard");
+      else setLocation("/");
+    }
   }, [user, setLocation]);
 
   async function onSubmit(data: LoginForm) {
     try {
       await login({ ...data, portalRole: role });
-      setLocation("/");
+      setLocation("/dashboard");
     } catch (error) {
+      console.error("Login error:", error);
       form.setError("root", { 
         message: error instanceof Error ? error.message : "Login failed" 
       });

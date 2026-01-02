@@ -1,8 +1,19 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ShieldCheck, LayoutDashboard, Users, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
 
 export default function LandingPage() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (user) {
+      setLocation("/dashboard");
+    }
+  }, [user, setLocation]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-muted/50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-4xl text-center space-y-8 animate-in fade-in zoom-in duration-500">
