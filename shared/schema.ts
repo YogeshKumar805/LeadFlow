@@ -7,6 +7,7 @@ export const roleEnum = pgEnum("role", ["ADMIN", "MANAGER", "EXECUTIVE"]);
 export const leadStatusEnum = pgEnum("status", ["NEW", "FOLLOW_UP", "CONVERTED", "CLOSED"]);
 export const assignmentStageEnum = pgEnum("assignment_stage", ["UNASSIGNED", "MANAGER_ASSIGNED", "EXECUTIVE_ASSIGNED"]);
 export const historyLevelEnum = pgEnum("history_level", ["MANAGER_LEVEL", "EXECUTIVE_LEVEL"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["LEAD_ASSIGNED", "FOLLOW_UP_REMINDER", "OVERDUE"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -64,12 +65,21 @@ export const leadNotes = pgTable("lead_notes", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  type: text("type").notNull(),
+  type: notificationTypeEnum("type").notNull(),
   title: text("title").notNull(),
   message: text("message").notNull(),
   relatedLeadId: integer("related_lead_id"),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  action: text("action").notNull(),
+  targetUserId: integer("target_user_id"),
+  details: text("details"),
+  timestamp: timestamp("timestamp").defaultNow(),
 });
 
 // Relations
@@ -163,3 +173,4 @@ export type Note = typeof leadNotes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;

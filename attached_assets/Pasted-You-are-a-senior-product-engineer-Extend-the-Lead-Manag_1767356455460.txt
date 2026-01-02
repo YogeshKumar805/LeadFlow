@@ -1,0 +1,75 @@
+You are a senior product engineer. Extend the Lead Management App with NOTIFICATIONS and ROLE-BASED USER MANAGEMENT permissions as defined below.
+
+FEATURE 1: NOTIFICATIONS SYSTEM
+Implement a centralized notifications module with real-time alerts and reminders.
+
+Notification triggers:
+1) New lead assigned
+   - When Admin assigns a lead to a Manager → notify the Manager
+   - When Manager assigns a lead to an Executive → notify the Executive
+
+2) Follow-up reminders
+   - Notify Executive on the follow-up date (same day reminder)
+   - Notify Executive and Manager if follow-up becomes overdue
+   - Optional: notify Admin for overdue follow-ups older than X days
+
+Notification delivery:
+- In-app notifications (mandatory)
+- Push notification ready (mobile-first)
+- Each notification includes: title, message, related lead, timestamp, read/unread state
+
+Notification data model:
+- id
+- user_id
+- type (LEAD_ASSIGNED, FOLLOW_UP_REMINDER, OVERDUE)
+- title
+- message
+- lead_id (nullable)
+- is_read (boolean)
+- created_at (DateTime)
+
+FEATURE 2: USER MANAGEMENT PERMISSIONS (RBAC)
+
+Admin Permissions:
+- Add, edit, activate, deactivate, and remove ALL users (Admins, Managers, Executives)
+- Assign or reassign Managers to Executives
+- View and manage all user profiles
+- Full override permissions across the system
+
+Manager Permissions:
+- Add new Executives under their own team only
+- Edit or remove Executives assigned to them
+- Activate / deactivate their Executives
+- Managers CANNOT:
+  - Add or remove Admins
+  - Add or remove other Managers
+  - Modify Executives belonging to another Manager
+
+Executive Permissions:
+- Cannot add, edit, or remove any users
+- Can only manage assigned leads
+
+VALIDATION RULES (IMPORTANT)
+- When a Manager creates an Executive, automatically link executive.manager_id = manager.id
+- Prevent Managers from accessing user records outside their team
+- Prevent deletion of users who have active leads unless reassigned or deactivated
+- All add/remove actions must be logged in an audit log with user_id, action, target_user_id, timestamp
+
+UI REQUIREMENTS
+- Admin User Management Screen:
+  - Tabs: Admins | Managers | Executives
+  - Actions: Add, Edit, Deactivate, Remove
+- Manager User Management Screen:
+  - Only shows Executives under that Manager
+  - Actions: Add Executive, Edit, Deactivate, Remove
+- Executives do NOT see any user management UI
+
+DELIVERABLES
+Provide:
+1) Updated database schema
+2) Permission matrix (Admin vs Manager vs Executive)
+3) Notification triggers & logic
+4) API endpoints for user management & notifications
+5) Edge-case handling and security validations
+
+Implement with secure RBAC, clean UI, and production-ready validation.
