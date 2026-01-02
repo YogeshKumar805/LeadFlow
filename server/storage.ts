@@ -164,28 +164,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDashboardStats(userId: number, role: string): Promise<any> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-    let baseWhere = undefined;
-    if (role === 'EXECUTIVE') baseWhere = eq(leads.assignedExecutiveId, userId);
-    else if (role === 'MANAGER') baseWhere = eq(leads.assignedManagerId, userId);
+      let baseWhere = undefined;
+      if (role === 'EXECUTIVE') baseWhere = eq(leads.assignedExecutiveId, userId);
+      else if (role === 'MANAGER') baseWhere = eq(leads.assignedManagerId, userId);
 
-    const [total] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(baseWhere);
-    const [todayF] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'FOLLOW_UP'), sql`${leads.followUpAt} >= ${today.toISOString()} AND ${leads.followUpAt} < ${tomorrow.toISOString()}`));
-    const [overdue] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'FOLLOW_UP'), sql`${leads.followUpAt} < ${today.toISOString()}`));
-    const [conv] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CONVERTED')));
-    const [closed] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CLOSED')));
+      const [total] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(baseWhere);
+      const [todayF] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'FOLLOW_UP'), sql`${leads.followUpAt} >= ${today.toISOString()} AND ${leads.followUpAt} < ${tomorrow.toISOString()}`));
+      const [overdue] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'FOLLOW_UP'), sql`${leads.followUpAt} < ${today.toISOString()}`));
+      const [conv] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CONVERTED')));
+      const [closed] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CLOSED')));
 
-    return {
-      totalLeads: Number(total.count),
-      todayFollowUps: Number(todayF.count),
-      overdueFollowUps: Number(overdue.count),
-      convertedCount: Number(conv.count),
-      closedCount: Number(closed.count),
-    };
+      return {
+        totalLeads: Number(total.count) || 0,
+        todayFollowUps: Number(todayF.count) || 0,
+        overdueFollowUps: Number(overdue.count) || 0,
+        convertedCount: Number(conv.count) || 0,
+        closedCount: Number(closed.count) || 0,
+      };
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      return {
+        totalLeads: 0,
+        todayFollowUps: 0,
+        overdueFollowUps: 0,
+        convertedCount: 0,
+        closedCount: 0,
+        error: "DB_SCHEMA_MISMATCH"
+      };
+    }
   }
 
   async getNextManagerRoundRobin(): Promise<User | undefined> {

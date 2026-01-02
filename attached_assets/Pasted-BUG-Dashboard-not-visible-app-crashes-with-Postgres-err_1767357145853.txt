@@ -1,0 +1,61 @@
+BUG: Dashboard not visible + app crashes with Postgres error:
+routine: errorMissingColumn (parse_relation.c), Node.js v20.19.3
+This means queries reference a missing DB column. Fix schema + queries + add safe error handling.
+
+TASKS (MUST DO ALL):
+
+1) FIND THE EXACT FAILING QUERY
+- Enable logging to print the SQL query (or Supabase query params) right before execution.
+- Log table name + selected columns + filters + orderBy.
+- Identify which column is missing (the DB will mention it once query is printed).
+
+2) SYNC DATABASE SCHEMA WITH CODE
+- Inspect actual DB schema for tables: users, leads, notes, notifications, manager_executive_map (or similar).
+- Ensure every column used in the code exists in DB.
+- If code expects these columns, they MUST exist in leads table:
+  - assigned_manager_id
+  - assigned_executive_id
+  - assignment_stage
+  - status
+  - follow_up_at (DateTime)
+  - created_at, updated_at
+- Ensure users table has:
+  - role (ADMIN/MANAGER/EXECUTIVE)
+  - manager_id (nullable; required for executives)
+  - is_active
+- Apply migrations to add any missing columns.
+- If any columns were renamed, update code queries to match DB.
+
+3) FIX DASHBOARD QUERIES (NO CRASH)
+- Admin dashboard:
+  - total_leads = count(*)
+  - today_followups = count where status='FOLLOW_UP' AND follow_up_at::date = today
+  - executive_performance grouped by assigned_executive_id
+- Manager dashboard:
+  - same metrics but only for leads where assigned_manager_id = current_manager_id
+- Executive dashboard:
+  - same metrics but only for leads where assigned_executive_id = current_user_id
+
+4) ADD DEFENSIVE ERROR HANDLING (CRITICAL)
+- Dashboard API must NEVER crash the app.
+- Wrap queries in try/catch and return:
+  { ok:false, message:"Dashboard failed", error_code:"DB_SCHEMA_MISMATCH" }
+- Frontend must show a fallback UI:
+  “Dashboard unavailable. Please contact admin.” with Retry button.
+
+5) PREVENT “undefined” CRASHES IN UI
+- All dashboard components must handle empty/undefined safely:
+  - default totals = 0
+  - default lists = []
+  - render loaders and empty states
+
+6) ADD A STARTUP HEALTH CHECK
+- On server start, run a lightweight check:
+  - verify required columns exist (information_schema.columns)
+  - if missing, log clear error: which table/column is missing.
+
+DELIVERABLE:
+- The printed failing query + the missing column name
+- Updated DB migration SQL
+- Updated dashboard queries
+- UI fallback + no more crashes
