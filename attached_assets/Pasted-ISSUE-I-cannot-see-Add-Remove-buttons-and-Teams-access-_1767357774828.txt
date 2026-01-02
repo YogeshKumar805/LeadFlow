@@ -1,0 +1,55 @@
+ISSUE: I cannot see “Add / Remove” buttons and “Teams” access in the UI.
+
+FIX THIS COMPLETELY by implementing role-based navigation + pages + buttons.
+Do NOT only write permissions in text—MAKE THE UI VISIBLE.
+
+1) REQUIRED PAGES + ROUTES
+Create these pages and ensure they are reachable from the sidebar:
+- ADMIN: /admin/users  (User Management)
+- MANAGER: /manager/team (Team Management)
+
+2) SIDEBAR / MENU MUST BE ROLE-BASED
+Show menu items based on currentUser.role:
+- If role == ADMIN:
+  show “Users” (link /admin/users) and “Dashboard”
+- If role == MANAGER:
+  show “Team” (link /manager/team) and “Dashboard”
+- If role == EXECUTIVE:
+  show ONLY “Leads”, “Notifications”, “Dashboard” (no team/users)
+
+3) BUTTON VISIBILITY (CRITICAL)
+- On /admin/users:
+  show buttons Add / Edit / Deactivate / Remove for ALL roles (Admins, Managers, Executives)
+  ONLY if currentUser.role == ADMIN
+
+- On /manager/team:
+  show buttons Add Executive / Edit / Deactivate / Remove Executive
+  ONLY if currentUser.role == MANAGER
+  Manager can only manage executives whose manager_id == currentUser.id
+
+4) BACKEND/API MUST ENFORCE SAME RBAC
+Even if someone hits API directly:
+- ADMIN can create/remove any user
+- MANAGER can create/remove ONLY executives with manager_id = currentUser.id
+- EXECUTIVE cannot create/remove users
+
+5) AUTH STATE MUST LOAD ROLE CORRECTLY
+After login:
+- Fetch user profile from DB: id, role, is_active
+- Store it in app state (currentUser)
+- Do NOT default role to EXECUTIVE
+- If role is missing, show blocking error “User role not set. Contact admin.”
+
+6) DATA MODEL REQUIRED
+users table must have:
+- id, name, email/mobile, role (ADMIN|MANAGER|EXECUTIVE), is_active, manager_id (nullable)
+
+Rules:
+- Executive must have manager_id set
+- When Manager creates Executive => automatically set manager_id = manager.id
+
+DELIVERABLE:
+After fix:
+- Admin can see “Users” menu + Add/Remove buttons
+- Manager can see “Team” menu + Add/Remove Executive buttons
+- Executive cannot see these menus/buttons
