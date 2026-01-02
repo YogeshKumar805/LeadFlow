@@ -32,9 +32,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
   const navItems = [
-    { label: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "EXECUTIVE"] },
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "EXECUTIVE"] },
     { label: "Leads", href: "/leads", icon: Contact, roles: ["ADMIN", "MANAGER", "EXECUTIVE"] },
-    { label: "Team", href: "/team", icon: Users, roles: ["ADMIN", "MANAGER"] },
+    { label: "Users", href: "/admin/users", icon: Users, roles: ["ADMIN"] },
+    { label: "Team", href: "/manager/team", icon: Users, roles: ["MANAGER"] },
   ];
 
   const filteredNavItems = navItems.filter(item => 

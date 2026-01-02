@@ -12,6 +12,8 @@ import LoginPage from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import LeadsPage from "@/pages/leads";
 import TeamPage from "@/pages/team";
+import AdminUsersPage from "@/pages/admin-users";
+import ManagerTeamPage from "@/pages/manager-team";
 import Layout from "@/components/layout";
 import { Loader2 } from "lucide-react";
 
@@ -73,6 +75,14 @@ function Router() {
 
       <Route path="/team">
         {() => <ProtectedRoute component={TeamPage} roles={["ADMIN", "MANAGER"]} />}
+      </Route>
+
+      <Route path="/admin/users">
+        {() => <ProtectedRoute component={AdminUsersPage} roles={["ADMIN"]} />}
+      </Route>
+
+      <Route path="/manager/team">
+        {() => <ProtectedRoute component={ManagerTeamPage} roles={["MANAGER"]} />}
       </Route>
 
       {/* Default redirect for logged in users from root is handled in LandingPage via logic or manual Nav */}

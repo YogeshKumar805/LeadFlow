@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth, hashPassword } from "./auth";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
+import { insertUserSchema, insertLeadSchema } from "@shared/schema";
 import { z } from "zod";
 
 async function seed() {
@@ -100,8 +101,16 @@ export async function registerRoutes(
 
   app.delete("/api/admin/users/:id", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== 'ADMIN') return res.sendStatus(403);
-    // Implementation needed in storage
-    res.sendStatus(200);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+    try {
+      // Need a deleteUser method in storage
+      // For now, let's just deactivate
+      await storage.updateUser(id, { isActive: false });
+      res.sendStatus(200);
+    } catch (err) {
+      res.status(500).json({ message: "Internal Server Error" });
+    }
   });
 
   app.post("/api/manager/executives", async (req, res) => {
@@ -132,8 +141,13 @@ export async function registerRoutes(
     if (req.query.status) filters.status = req.query.status;
     if (req.query.search) filters.search = req.query.search;
     
-    const leads = await storage.getLeads(filters);
-    res.json(leads);
+    try {
+      const leads = await storage.getLeads(filters);
+      res.json(leads);
+    } catch (err) {
+      console.error("Leads list error:", err);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
   });
 
   app.get(api.leads.get.path, async (req, res) => {

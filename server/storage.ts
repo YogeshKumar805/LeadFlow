@@ -275,6 +275,14 @@ export class DatabaseStorage implements IStorage {
 
     return workloads.sort((a, b) => a.count - b.count)[0].executive;
   }
+  async updateUser(id: number, updates: Partial<User>): Promise<User> {
+    const [updatedUser] = await db.update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    if (!updatedUser) throw new Error("User not found");
+    return updatedUser;
+  }
 }
 
 export const storage = new DatabaseStorage();
