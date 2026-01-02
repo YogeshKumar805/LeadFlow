@@ -168,6 +168,11 @@ export const api = {
           overdueFollowUps: z.number(),
           convertedCount: z.number(),
           closedCount: z.number(),
+          teamPerformance: z.array(z.object({
+            executiveName: z.string(),
+            assignedCount: z.number(),
+            convertedCount: z.number(),
+          })).optional(),
           stageStats: z.object({
             unassigned: z.number(),
             managerAssigned: z.number(),

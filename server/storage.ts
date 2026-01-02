@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   users, leads, leadNotes, notifications, assignmentHistory,
   type User, type Lead, type AssignmentHistory, type Note, type Notification, 
-  type InsertUser, type InsertLead, type InsertNote, type InsertNotification, type InsertAssignmentHistory
+  type InsertUser, type InsertLead, type InsertNote, type InsertNotification
 } from "@shared/schema";
 import { eq, and, sql, desc, inArray, asc } from "drizzle-orm";
 
@@ -180,12 +180,27 @@ export class DatabaseStorage implements IStorage {
       const [conv] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CONVERTED')));
       const [closed] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(baseWhere, eq(leads.status, 'CLOSED')));
 
+      let teamPerformance: any[] = [];
+      if (role === 'ADMIN' || role === 'MANAGER') {
+        const executives = await this.getUsersByRole("EXECUTIVE");
+        teamPerformance = await Promise.all(executives.map(async (exec) => {
+          const [assigned] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(eq(leads.assignedExecutiveId, exec.id));
+          const [converted] = await db.select({ count: sql<number>`count(*)` }).from(leads).where(and(eq(leads.assignedExecutiveId, exec.id), eq(leads.status, 'CONVERTED')));
+          return {
+            executiveName: exec.name,
+            assignedCount: Number(assigned.count),
+            convertedCount: Number(converted.count)
+          };
+        }));
+      }
+
       return {
         totalLeads: Number(total.count) || 0,
         todayFollowUps: Number(todayF.count) || 0,
         overdueFollowUps: Number(overdue.count) || 0,
         convertedCount: Number(conv.count) || 0,
         closedCount: Number(closed.count) || 0,
+        teamPerformance
       };
     } catch (error) {
       console.error("Dashboard stats error:", error);

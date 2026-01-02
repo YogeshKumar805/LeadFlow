@@ -169,6 +169,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type AssignmentHistory = typeof assignmentHistory.$inferSelect;
+export type InsertAssignmentHistory = z.infer<typeof insertAssignmentHistorySchema>;
 export type Note = typeof leadNotes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Notification = typeof notifications.$inferSelect;
