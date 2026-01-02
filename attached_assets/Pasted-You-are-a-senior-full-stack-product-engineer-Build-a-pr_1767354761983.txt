@@ -1,0 +1,122 @@
+You are a senior full-stack product engineer. Build a production-ready Lead Management App (mobile-first + web) with RBAC, separate login sections, lead assignment, follow-ups, dashboard, and notifications.
+
+1) ROLES (RBAC)
+- Admin: full access, manage users (Managers, Executives), view all leads + analytics, configure sources/service types, assign/reassign leads, audit logs.
+- Manager: view leads of their executives, manual assign/reassign, monitor performance dashboards.
+- Executive: view only assigned leads, update status, add notes, set follow-up dates, receive reminders.
+
+2) AUTH + SEPARATE LOGIN SECTIONS (IMPORTANT)
+Create 3 separate login pages/sections:
+- /login/admin
+- /login/manager
+- /login/executive
+Each login only allows that role. If a user tries wrong portal, show: “Unauthorized portal for this account.”
+Also add a unified “Choose Role” landing page with 3 buttons to open the correct login.
+
+Store user table with:
+- id, name, mobile/email, role (enum: ADMIN, MANAGER, EXECUTIVE), password hash, is_active, created_at, last_login_at
+Managers have executives mapping:
+- manager_id -> executive_id (many executives per manager)
+
+3) LEAD FIELDS (Data Model)
+Leads must include:
+- name (string, required)
+- mobile (string, required, validation: 10 digits; unique optional)
+- service_type (enum or string, required)
+- city (string, required)
+- source (enum or string, required)
+
+System fields:
+- id
+- assigned_to (executive_id, nullable until assigned)
+- assigned_by (admin/manager id)
+- status (enum: NEW, FOLLOW_UP, CONVERTED, CLOSED) default NEW
+- follow_up_at (DATETIME, nullable)  ✅ MUST be Date/DateTime type, not string
+- created_at (DATETIME)
+- updated_at (DATETIME)
+
+4) FEATURES
+A) Add Lead
+- Form to create lead with required validations.
+- On create: status = NEW, created_at auto.
+- Option: auto-assign ON/OFF.
+
+B) Assignment
+- Auto-assign: Round-robin among active executives (optionally within a manager’s team).
+- Manual assign: Admin/Manager selects executive.
+- Reassign allowed only for Admin/Manager; keep reassignment history.
+
+C) Status Workflow
+- NEW -> FOLLOW_UP -> (CONVERTED or CLOSED)
+Rules:
+- If status is FOLLOW_UP, follow_up_at is REQUIRED and must be a valid DateTime.
+- If status is CONVERTED or CLOSED, editing is restricted (only Admin can edit; Manager/Executive read-only except adding a final note if allowed).
+
+D) Notes + Follow-up
+Create a LeadNotes table:
+- id, lead_id, note_text, created_by_user_id, created_at (DATETIME)
+Notes should be shown as a timeline.
+
+5) DASHBOARD
+Admin/Manager dashboard cards:
+- Total leads
+- Today follow-ups (count of leads where follow_up_at is today AND status=FOLLOW_UP)
+- Executive-wise performance table:
+  - executive name
+  - leads assigned
+  - follow-ups due today
+  - converted count
+  - closed count
+
+Executive dashboard:
+- My total assigned
+- Today follow-ups
+- Overdue follow-ups
+
+6) NOTIFICATIONS
+- Trigger when new lead assigned: notify executive immediately (in-app + push-ready)
+- Follow-up reminders:
+  - Morning reminder for today’s follow-ups
+  - Overdue reminder for past follow_up_at that are not completed
+Store notifications table:
+- id, user_id, type, title, message, related_lead_id, is_read, created_at
+
+7) FIX THE “expected date, received string” ERROR (CRITICAL)
+Follow_up field MUST be stored and processed as Date/DateTime, not string.
+
+Implement:
+- UI DateTime Picker that returns a Date object (or ISO string that is parsed into DateTime before saving).
+- Backend validation: if follow_up_at is provided, parse it into DateTime.
+- If invalid, return error: “Follow-up date must be a valid date/time.”
+- When sending via API, use ISO 8601 format: 2026-01-02T10:30:00Z (or with local timezone).
+- Database column type:
+  - SQL: TIMESTAMP / DATETIME
+  - Firebase: Timestamp
+  - Mongo: Date
+
+Also ensure:
+- Any schema uses follow_up_at as date type:
+  - Zod: z.coerce.date() (if using strings from form)
+  - Yup: yup.date().required() when status=FOLLOW_UP
+  - Prisma: DateTime
+  - Mongoose: Date
+
+8) SCREENS (Minimum)
+- Role selection page
+- Admin login, Manager login, Executive login
+- Leads list with filters (status, city, source, executive, date)
+- Add lead screen
+- Lead detail screen (status update, notes, follow-up picker)
+- Assignment screen (admin/manager)
+- Dashboard screen
+- Notifications screen
+
+9) OUTPUT REQUIRED FROM YOU
+Generate:
+- Database schema (tables/collections)
+- API endpoints (CRUD + assignment + dashboard + notifications)
+- Permission matrix for each role
+- Frontend screen list + key components
+- Validation rules that prevent date-string errors
+
+Build it with clean UI, fast search, pagination, and secure RBAC.
