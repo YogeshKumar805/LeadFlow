@@ -1,0 +1,71 @@
+BUG/ISSUE:
+I cannot see the “Add Executive / Remove Executive” access in the UI.
+Fix the RBAC + UI so the correct buttons and pages appear for Admin and Manager.
+
+REQUIREMENTS (MUST IMPLEMENT):
+
+1) USER MANAGEMENT PAGES (MUST EXIST)
+Create these pages and add them to the navigation:
+
+A) Admin users management:
+- Route: /admin/users
+- Visible in sidebar/menu ONLY if role == ADMIN
+- Tabs: Admins | Managers | Executives
+- Actions (buttons): Add, Edit, Deactivate, Remove (Delete)
+- Admin can add/remove ANY role (admin/manager/executive)
+
+B) Manager team management:
+- Route: /manager/team
+- Visible in sidebar/menu ONLY if role == MANAGER
+- Shows ONLY executives under that manager
+- Actions (buttons): Add Executive, Edit, Deactivate, Remove Executive
+- Manager can add/remove ONLY executives in their own team
+
+Executives must NOT see any user management page or buttons.
+
+2) UI VISIBILITY (CRITICAL)
+Buttons must be conditionally rendered:
+- Show “Add User / Remove User” ONLY for ADMIN on /admin/users
+- Show “Add Executive / Remove Executive” ONLY for MANAGER on /manager/team
+- If role mismatch, hide the page from nav AND block direct access with “403 Unauthorized”.
+
+3) PERMISSIONS ENFORCEMENT (BACKEND/API MUST ALSO ENFORCE)
+Even if UI hides buttons, API must block unauthorized actions:
+
+- ADMIN can:
+  - create/update/deactivate/remove any user
+  - create/update/deactivate/remove managers & executives
+- MANAGER can:
+  - create executive where executive.manager_id = current_manager.id
+  - update/deactivate/remove ONLY executives with executive.manager_id = current_manager.id
+- EXECUTIVE can:
+  - no user management actions
+
+4) DATA MODEL (MUST SUPPORT TEAM OWNERSHIP)
+Users table fields:
+- id, name, mobile/email, role (ADMIN|MANAGER|EXECUTIVE), is_active, manager_id (nullable), created_at
+
+Rules:
+- For EXECUTIVE, manager_id is REQUIRED.
+- When Manager creates Executive, set manager_id automatically.
+
+5) API ENDPOINTS (REQUIRED)
+- POST /admin/users (ADMIN only) -> create any user
+- DELETE /admin/users/:id (ADMIN only) -> remove any user
+- POST /manager/executives (MANAGER only) -> create executive under self
+- DELETE /manager/executives/:id (MANAGER only) -> remove executive under self
+- GET /admin/users (ADMIN only)
+- GET /manager/executives (MANAGER only)
+
+6) COMMON BUG FIXES TO APPLY
+- Ensure role is stored as ENUM and read correctly after login.
+- Ensure after login you fetch the current user profile (role) and store it in auth state.
+- Ensure navigation menu is built from role-based config.
+- Ensure no hardcoded “Executive” default role.
+- Ensure separate login routes assign correct role context.
+
+DELIVERABLE:
+Update UI navigation + pages + buttons so I can clearly see Add/Remove options:
+- Admin sees /admin/users with Add/Remove for all roles
+- Manager sees /manager/team with Add/Remove for executives only
+- Executive sees none of these
