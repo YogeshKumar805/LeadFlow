@@ -2,7 +2,8 @@ import { db } from "./db";
 import {
   users, leads, leadNotes, notifications, assignmentHistory,
   type User, type Lead, type AssignmentHistory, type Note, type Notification, 
-  type InsertUser, type InsertLead, type InsertNote, type InsertNotification
+  type InsertUser, type InsertLead, type InsertNote, type InsertNotification,
+  type InsertAssignmentHistory
 } from "@shared/schema";
 import { eq, and, sql, desc, inArray, asc } from "drizzle-orm";
 

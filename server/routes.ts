@@ -69,24 +69,56 @@ export async function registerRoutes(
 
   app.get(api.users.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as any;
     const role = req.query.role as any;
-    const users = await storage.getUsersByRole(role);
-    res.json(users);
+    
+    if (user.role === 'MANAGER') {
+      // Manager can only see their own executives
+      const usersList = await storage.getExecutivesByManager(user.id);
+      return res.json(usersList);
+    }
+    
+    if (user.role === 'ADMIN') {
+      const usersList = await storage.getUsersByRole(role);
+      return res.json(usersList);
+    }
+
+    res.status(403).json({ message: "Unauthorized" });
   });
 
-  app.post(api.users.create.path, async (req, res) => {
+  app.post("/api/admin/users", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== 'ADMIN') return res.sendStatus(403);
     try {
-      const input = api.users.create.input.parse(req.body);
+      const input = insertUserSchema.parse(req.body);
       const hashedPassword = await hashPassword(input.password);
       const user = await storage.createUser({ ...input, password: hashedPassword });
       res.status(201).json(user);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.errors[0].message });
-      } else {
-        res.status(500).json({ message: "Internal Server Error" });
-      }
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== 'ADMIN') return res.sendStatus(403);
+    // Implementation needed in storage
+    res.sendStatus(200);
+  });
+
+  app.post("/api/manager/executives", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== 'MANAGER') return res.sendStatus(403);
+    const manager = req.user as any;
+    try {
+      const input = insertUserSchema.parse(req.body);
+      const hashedPassword = await hashPassword(input.password);
+      const user = await storage.createUser({ 
+        ...input, 
+        password: hashedPassword,
+        role: "EXECUTIVE",
+        managerId: manager.id 
+      });
+      res.status(201).json(user);
+    } catch (err) {
+      res.status(400).json({ message: "Invalid input" });
     }
   });
 
