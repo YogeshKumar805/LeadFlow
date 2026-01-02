@@ -1,159 +1,102 @@
-# LeadFlow
-🚀📊 LeadFlow – Smart Lead Management System 💼🔔
+🚀 LeadFlow
+Smart, Role-Based Lead Management System
 
-Welcome to LeadFlow 🎯 — a powerful, role-based lead management platform built to bring clarity, control, and accountability to your sales pipeline. LeadFlow ensures that no lead is missed, every follow-up is tracked, and each role knows exactly what to do 👥⚙️.
+📌 Overview
+LeadFlow is a role-based lead management platform designed to bring structure, accountability, and efficiency to sales operations. It enforces a clear hierarchy where Admins manage the system, Managers handle teams, and Executives focus on follow-ups and conversions—ensuring no lead is missed and every action is tracked.
 
-✨🌟 Key Highlights
-
-🧠 Smart Auto-Assignment (Admin ➝ Manager ➝ Executive)
-
-👤 Role-Based Access Control (RBAC)
-
-🔔 Real-Time Notifications & Reminders
-
-📅 Follow-Up Tracking with Alerts
+✨ Key Features
+🔄 Automatic & Manual Lead Assignment
+👥 Role-Based Access Control (RBAC)
+🔔 Real-Time Notifications & Follow-Up Reminders
+📝 Lead Notes & Follow-Up Scheduling
 
 📊 Performance Dashboards
+📱 Mobile-First, Scalable Design
 
-📱 Mobile-First & Scalable Architecture
-
-👥🔐 User Roles & Permissions
+👥 User Roles & Permissions
 🛡️ Admin
-
-➕➖ Add / Edit / Remove Admins, Managers & Executives
-
-🔁 Assign & Reassign Leads to Managers
-
-📊 View global dashboards & analytics
-
-⚙️ Full system control & override permissions
+Add, edit, deactivate, and remove all users (Admins, Managers, Executives)
+Assign and reassign leads to Managers
+View complete system dashboards and analytics
+Full system control and override permissions
 
 🧑‍💼 Manager
-
-➕➖ Add / Remove Executives in own team
-
-🔁 Assign Leads to Executives
-
-📈 Track executive performance
-
-🔔 Get alerts for overdue follow-ups
+Add and remove Executives within their own team
+Assign and reassign leads to Executives
+View team performance and follow-up status
+Receive alerts for overdue follow-ups
 
 👨‍💻 Executive
+View only assigned leads
+Update lead status
+Add notes and set follow-up dates
+Receive assignment and reminder notifications
+No access to user management
 
-📋 View only assigned leads
-
-📝 Add notes & set follow-up dates
-
-🔔 Receive lead assignment & reminder notifications
-
-❌ No user-management access
-
-📝📌 Lead Fields
-
-Each lead contains:
-
+📝 Lead Information
+Each lead includes the following fields:
 👤 Name
-
 📞 Mobile Number
-
 🛠️ Service Type
-
 🌆 City
 
-🔗 Source (Facebook, Website, Walk-in, etc.)
-
-System-managed fields:
-
-🧭 Status: New / Follow-up / Converted / Closed
-
+🔗 Source (Website, Facebook, Referral, etc.)
+System Fields
+📌 Status: New / Follow-up / Converted / Close
 👥 Assigned Manager & Executive
+📅 Follow-Up Date (DateTime)
+🕒 Created & Updated Timestamps
+🔄 Lead Workflow
 
-📅 Follow-up Date (DateTime)
+➕ Lead Created (Status: New)
+🛡️ Admin assigns lead to Manager
+🧑‍💼 Manager assigns lead to Executive
+👨‍💻 Executive follows up and converts or closes
 
-🕒 Created & Updated timestamps
+Rules:
+Leads cannot skip hierarchy levels
+Follow-up date is mandatory for “Follow-up” status
+Converted/Closed leads are locked (Admin override only)
 
-🔄⚡ Lead Workflow
-
-1️⃣ Lead Created ➝ Status NEW
-2️⃣ Admin auto/manual assigns ➝ Manager
-3️⃣ Manager auto/manual assigns ➝ Executive
-4️⃣ Executive follows up ➝ Converted / Closed
-
-🚫 Leads cannot skip hierarchy levels
-🚫 Closed / Converted leads are locked (Admin override only)
-
-📊📈 Dashboards
+📊 Dashboards
 🛡️ Admin Dashboard
-
-🔢 Total Leads
-
-📅 Today’s Follow-ups
-
-🧑‍💼 Executive-wise Performance
-
-📉 Conversion & Closure Metrics
+Total Leads
+Today’s Follow-ups
+Executive-wise Performance
+Conversion & Closure Metrics
 
 🧑‍💼 Manager Dashboard
-
-📋 Team Leads Overview
-
-⏰ Overdue Follow-ups
-
-📊 Executive Performance
+Team Leads Overview
+Today & Overdue Follow-ups
+Executive Performance Summary
 
 👨‍💻 Executive Dashboard
+My Assigned Leads
+Today’s Follow-ups
+Overdue Reminders
+🔔 Notifications
 
-📌 My Leads
-
-⏰ Today’s Follow-ups
-
-⚠️ Overdue Alerts
-
-🔔📢 Notifications System
-
-Real-time notifications for:
-
+LeadFlow includes a built-in notification system:
 🆕 New Lead Assignment
-
-⏰ Follow-up Reminder
-
-⚠️ Overdue Follow-up Alert
-
+⏰ Follow-up Reminder (same day)
+⚠️ Overdue Follow-up Alerts
 Delivery Channels:
+In-app notifications
+Push-notification ready (mobile)
+WhatsApp / Email (future-ready)
 
-📲 In-App Notifications
+🔐 Security & Stability
+Role-based permission enforcement (RBAC)
+Secure user authentication
+Defensive API error handling (no app crashes)
+Database schema validation & health checks
+Optimized for high lead volume
 
-🔔 Push-ready (Mobile)
+🚀 Getting Started
+Set up the database and run migrations
+Create an Admin account
+Add Managers and Executives
+Start adding and assigning leads
 
-📧 WhatsApp / Email (Future-ready)
-
-🧱🗄️ Tech & Stability
-
-🛡️ Secure RBAC enforcement
-
-🗂️ Clean database schema with migrations
-
-🚨 Defensive error handling (no app crashes!)
-
-⚡ Fast queries with pagination
-
-🔍 Startup DB health checks
-
-🛠️🚀 Getting Started
-
-1️⃣ Configure database & run migrations
-2️⃣ Create Admin account
-3️⃣ Add Managers & Executives
-4️⃣ Start adding leads 🎯
-
-🌈🎯 Vision
-
-LeadFlow is built for high-pressure sales teams who need:
-
-Speed ⚡
-
-Transparency 👀
-
-Discipline 📏
-
-Results 📈
+🎯 Vision
+LeadFlow is built for high-performance sales teams that need speed, visibility, and accountability. It replaces chaos with structure and ensures every lead gets the attention it deserves.
