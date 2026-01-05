@@ -1,114 +1,155 @@
-🚀 LeadFlow
-Smart, Role-Based Lead Management System
+# 🚀 LeadFlow  
+### Smart, Role-Based Lead Management System
 
-📌 Overview
-LeadFlow is a role-based lead management platform designed to bring structure, accountability, and efficiency to sales operations. It enforces a clear hierarchy where Admins manage the system, Managers handle teams, and Executives focus on follow-ups and conversions—ensuring no lead is missed and every action is tracked.
+---
 
+## 📌 Overview
 
-✨ Key Features
-🔄 Automatic & Manual Lead Assignment
-👥 Role-Based Access Control (RBAC)
-🔔 Real-Time Notifications & Follow-Up Reminders
-📝 Lead Notes & Follow-Up Scheduling
+**LeadFlow** is a role-based lead management platform designed to bring **structure, accountability, and efficiency** to sales operations.  
+It enforces a clear hierarchy where:
 
+- **Admins** manage the system  
+- **Managers** handle teams  
+- **Executives** focus on follow-ups and conversions  
 
-📊 Performance Dashboards
-📱 Mobile-First, Scalable Design
+This ensures **no lead is missed** and **every action is tracked**.
 
+---
 
-👥 User Roles & Permissions
-🛡️ Admin
-Add, edit, deactivate, and remove all users (Admins, Managers, Executives)
-Assign and reassign leads to Managers
-View complete system dashboards and analytics
-Full system control and override permissions
+## ✨ Key Features
 
+- 🔄 Automatic & Manual Lead Assignment  
+- 👥 Role-Based Access Control (RBAC)  
+- 🔔 Real-Time Notifications & Follow-Up Reminders  
+- 📝 Lead Notes & Follow-Up Scheduling  
+- 📊 Performance Dashboards  
+- 📱 Mobile-First, Scalable Design  
 
-🧑‍💼 Manager
-Add and remove Executives within their own team
-Assign and reassign leads to Executives
-View team performance and follow-up status
-Receive alerts for overdue follow-ups
+---
 
+## 👥 User Roles & Permissions
 
-👨‍💻 Executive
-View only assigned leads
-Update lead status
-Add notes and set follow-up dates
-Receive assignment and reminder notifications
-No access to user management
+### 🛡️ Admin
+- Add, edit, deactivate, and remove all users (Admins, Managers, Executives)
+- Assign and reassign leads to Managers
+- View complete system dashboards and analytics
+- Full system control with override permissions
 
+---
 
-📝 Lead Information
+### 🧑‍💼 Manager
+- Add and remove Executives within their team
+- Assign and reassign leads to Executives
+- View team performance and follow-up status
+- Receive alerts for overdue follow-ups
+
+---
+
+### 👨‍💻 Executive
+- View only assigned leads
+- Update lead status
+- Add notes and set follow-up dates
+- Receive assignment and reminder notifications
+- No access to user management
+
+---
+
+## 📝 Lead Information
+
 Each lead includes the following fields:
-👤 Name
-📞 Mobile Number
-🛠️ Service Type
-🌆 City
 
+### Basic Details
+- 👤 Name  
+- 📞 Mobile Number  
+- 🛠️ Service Type  
+- 🌆 City  
+- 🔗 Source (Website, Facebook, Referral, etc.)
 
-🔗 Source (Website, Facebook, Referral, etc.)
-System Fields
-📌 Status: New / Follow-up / Converted / Close
-👥 Assigned Manager & Executive
-📅 Follow-Up Date (DateTime)
-🕒 Created & Updated Timestamps
-🔄 Lead Workflow
-➕ Lead Created (Status: New)
-🛡️ Admin assigns lead to Manager
-🧑‍💼 Manager assigns lead to Executive
-👨‍💻 Executive follows up and converts or closes
+### System Fields
+- 📌 **Status:** New / Follow-up / Converted / Closed  
+- 👥 Assigned Manager & Executive  
+- 📅 Follow-Up Date (DateTime)  
+- 🕒 Created & Updated Timestamps  
 
+---
 
-Rules:
-Leads cannot skip hierarchy levels
-Follow-up date is mandatory for “Follow-up” status
-Converted/Closed leads are locked (Admin override only)
+## 🔄 Lead Workflow
 
+1. ➕ Lead Created *(Status: New)*  
+2. 🛡️ Admin assigns lead to Manager  
+3. 🧑‍💼 Manager assigns lead to Executive  
+4. 👨‍💻 Executive follows up and converts or closes  
 
-📊 Dashboards
-🛡️ Admin Dashboard
-Total Leads
-Today’s Follow-ups
-Executive-wise Performance
-Conversion & Closure Metrics
+### Rules
+- Leads **cannot skip hierarchy levels**
+- Follow-up date is **mandatory** for “Follow-up” status
+- Converted/Closed leads are **locked** (Admin override only)
 
-🧑‍💼 Manager Dashboard
-Team Leads Overview
-Today & Overdue Follow-ups
-Executive Performance Summary
+---
 
-👨‍💻 Executive Dashboard
-My Assigned Leads
-Today’s Follow-ups
-Overdue Reminders
-🔔 Notifications
+## 📊 Dashboards
 
+### 🛡️ Admin Dashboard
+- Total Leads  
+- Today’s Follow-ups  
+- Executive-wise Performance  
+- Conversion & Closure Metrics  
 
-LeadFlow includes a built-in notification system:
-🆕 New Lead Assignment
-⏰ Follow-up Reminder (same day)
-⚠️ Overdue Follow-up Alerts
-Delivery Channels:
-In-app notifications
-Push-notification ready (mobile)
-WhatsApp / Email (future-ready)
+---
 
+### 🧑‍💼 Manager Dashboard
+- Team Leads Overview  
+- Today & Overdue Follow-ups  
+- Executive Performance Summary  
 
-🔐 Security & Stability
-Role-based permission enforcement (RBAC)
-Secure user authentication
-Defensive API error handling (no app crashes)
-Database schema validation & health checks
-Optimized for high lead volume
+---
 
+### 👨‍💻 Executive Dashboard
+- My Assigned Leads  
+- Today’s Follow-ups  
+- Overdue Reminders  
 
-🚀 Getting Started
-Set up the database and run migrations
-Create an Admin account
-Add Managers and Executives
-Start adding and assigning leads
+---
 
+## 🔔 Notifications
 
-🎯 Vision
-LeadFlow is built for high-performance sales teams that need speed, visibility, and accountability. It replaces chaos with structure and ensures every lead gets the attention it deserves.
+LeadFlow includes a built-in notification system for:
+
+- 🆕 New Lead Assignments  
+- ⏰ Same-Day Follow-Up Reminders  
+- ⚠️ Overdue Follow-Up Alerts  
+
+### Delivery Channels
+- In-app notifications  
+- Push notifications *(mobile-ready)*  
+- WhatsApp / Email *(future-ready)*  
+
+---
+
+## 🔐 Security & Stability
+
+- Role-Based Permission Enforcement (RBAC)  
+- Secure User Authentication  
+- Defensive API Error Handling (no app crashes)  
+- Database Schema Validation & Health Checks  
+- Optimized for High Lead Volume  
+
+---
+
+## 🚀 Getting Started
+
+1. Set up the database and run migrations  
+2. Create an **Admin** account  
+3. Add **Managers** and **Executives**  
+4. Start adding and assigning leads  
+
+---
+
+## 🎯 Vision
+
+**LeadFlow** is built for high-performance sales teams that need **speed, visibility, and accountability**.  
+It replaces chaos with structure and ensures **every lead gets the attention it deserves**.
+
+---
+
+⭐ If you find this project useful, consider giving it a star!
